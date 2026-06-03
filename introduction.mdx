@@ -55,7 +55,7 @@ generated entirely server-side — no browser required.
 The generation pipeline uses a planner + parallel writer architecture:
 - The **planner** reads your prompt and produces a slide outline
 - **Writers** fan out in parallel, one per slide, each generating full HTML
-- All slides are persisted to Firestore and available for editing immediately
+- All slides are persisted server-side and available for editing immediately
 
 Typical generation time: **20-60 seconds** for a 5-10 slide deck.
 
