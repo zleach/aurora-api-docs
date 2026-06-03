@@ -3,10 +3,17 @@ info:
   title: Aurora API
   version: "1.0"
   description: |
-    Programmatic deck generation powered by the Aurora server-side Turbo pipeline.
+    **Aurora by Gamma Labs** — programmatic AI presentation generation.
 
-    Generate AI-powered presentations from a text prompt, with optional style and
+    Generate full presentations from a text prompt, with optional style and
     template selection. Decks are generated server-side — no browser required.
+    Aurora comes from Gamma Labs, the experimental team behind
+    [Gamma](https://gamma.app).
+
+    **Research preview.** Aurora is an experimental research preview, not a
+    generally available product. The API may change or be removed without
+    notice, durability is best-effort (export anything you want to keep), and
+    you should not send confidential or production-critical data.
   contact:
     name: Gamma Labs
     url: https://gamma.app
