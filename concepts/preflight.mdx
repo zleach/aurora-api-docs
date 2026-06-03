@@ -1,0 +1,99 @@
+---
+title: "Preflight Agent"
+description: "Automatic prompt enrichment for better deck generation"
+---
+
+## Overview
+
+The preflight agent is an AI-powered enrichment layer that runs before
+deck generation. It takes your raw prompt and enhances it by:
+
+- **Detecting brands** — if you mention a company, it extracts their
+  brand identity and generates a matching style
+- **Picking styles** — searches 190+ built-in styles for the best visual
+  match
+- **Researching facts** — runs a web search for companies, events, or
+  technical topics
+- **Expanding the prompt** — adds audience, slide count, tone, and
+  structure detail
+
+## When it runs
+
+The preflight agent runs automatically when you send **only a prompt**
+(no explicit `styleId`, `brand`, or `templateId`). This is the default
+behavior — most API calls benefit from enrichment.
+
+```json
+// Preflight runs — no style/brand/template specified
+{ "prompt": "pitch deck for Stripe" }
+
+// Preflight skipped — style explicitly provided
+{ "prompt": "pitch deck for Stripe", "styleId": "editorial" }
+
+// Preflight skipped — brand explicitly provided
+{ "prompt": "company overview", "brand": { "name": "Stripe" } }
+```
+
+Set `"enrich": false` to bypass the preflight agent entirely:
+
+```json
+{ "prompt": "A 5-slide pitch deck", "enrich": false }
+```
+
+## How it works
+
+```
+raw user prompt
+    ↓
+  parse for brand/company mentions
+    ↓
+  (if brand found) extract_brand → ephemeral style
+  (if no brand)    search_styles → pick best match
+    ↓
+  (if specific topic) web_search → gather facts
+    ↓
+  expand prompt (audience, length, tone, structure)
+    ↓
+  enriched request → generation pipeline
+```
+
+The preflight agent uses Claude Sonnet with a small tool surface:
+`web_search`, `search_styles`, `extract_brand`, and `resolve_request`.
+It typically completes in 3-8 seconds.
+
+## Response fields
+
+When the preflight agent runs, the response includes extra metadata:
+
+| Field | Description |
+|-------|-------------|
+| `preflightMs` | Time spent in preflight enrichment |
+| `enrichedPrompt` | The expanded prompt sent to the planner |
+| `preflightResearch` | Summary of web research findings (if any) |
+
+These fields help you understand how the agent interpreted and enriched
+your prompt, and are useful for debugging and tuning.
+
+## Examples
+
+### Simple prompt → enriched
+
+**Input:** `"pitch deck for Stripe"`
+
+**Enriched:** `"A 6-slide investor pitch deck for Stripe, the payments
+infrastructure platform. Cover: company overview ($95B valuation),
+product suite (Payments, Billing, Connect, Atlas), market opportunity,
+competitive advantages, financial highlights, and roadmap. Tone:
+confident and data-driven. Audience: Series D+ investors."`
+
+### Generic topic → style-matched
+
+**Input:** `"history of jazz music"`
+
+**Enriched:** `"A 10-slide educational presentation on the history of
+jazz music. Cover: origins in New Orleans (early 1900s), key eras
+(swing, bebop, cool jazz, fusion), influential musicians (Armstrong,
+Ellington, Parker, Davis, Coltrane), and jazz's global influence today.
+Tone: warm and engaging. Audience: music enthusiasts."`
+
+**Style:** `velvet` (dark, rich, musical aesthetic)

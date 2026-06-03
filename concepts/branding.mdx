@@ -1,0 +1,123 @@
+---
+title: "Brand Extraction"
+description: "Generate on-brand decks without pre-creating a style"
+---
+
+## Overview
+
+The `brand` parameter lets API consumers generate decks that match a
+company's visual identity — colors, fonts, logos — without creating a
+style upfront. Aurora scrapes the brand's website, extracts design
+assets, and builds an ephemeral style on the fly.
+
+## How it works
+
+```
+brand name / URL
+    ↓
+  scrape website (colors, fonts, logos, tone)
+    ↓
+  synthesize brand data (Claude)
+    ↓
+  map to style draft (palette, colors, fonts)
+    ↓
+  bake design guide + stylesheet (Claude)
+    ↓
+  ephemeral Style → feed into generation pipeline
+```
+
+The entire brand extraction pipeline adds ~10-15 seconds to the
+generation time. The resulting style is **not stored** — it's used
+once for the current generation and discarded.
+
+## Automatic detection (preflight agent)
+
+The simplest way to use branding is to just mention the company in your
+prompt — the preflight agent detects it automatically:
+
+```json
+{
+  "prompt": "pitch deck for Stripe's payment infrastructure"
+}
+```
+
+The preflight agent parses your prompt, detects "Stripe", extracts the
+brand assets, and generates the deck in Stripe's visual identity. No
+explicit `brand` parameter needed.
+
+<Tip>
+The preflight agent also enriches your prompt with audience, slide count,
+and structure detail, and searches the web for relevant facts.
+</Tip>
+
+## Explicit usage
+
+For more control, pass a `brand` object instead of `styleId`:
+
+```json
+{
+  "prompt": "A 5-slide company overview for investors",
+  "brand": {
+    "name": "Stripe",
+    "url": "https://stripe.com"
+  }
+}
+```
+
+### Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Company or brand name |
+| `url` | No | Website URL. If omitted, derived from the name (e.g. `"Stripe"` becomes `https://stripe.com`) |
+
+<Note>
+`brand` and `styleId` are mutually exclusive. If both are provided,
+the API returns a `400` error.
+</Note>
+
+## What gets extracted
+
+Aurora's brand extractor scrapes the website and identifies:
+
+- **Colors** — primary, secondary, accent, and neutral colors from CSS
+- **Fonts** — heading and body typefaces, with Google Fonts fallbacks
+- **Logos** — primary logo, icon variants
+- **Tone** — brand voice and visual style inferred from content
+
+These assets are fed into a style generator that produces a complete
+design system: CSS variables, typography scale, layout rules, and a
+markdown design guide — everything the slide writer needs to produce
+on-brand content.
+
+## Response
+
+When `brand` is used, the response includes extra fields:
+
+```json
+{
+  "presentationId": "abc123",
+  "title": "Stripe — Investor Overview",
+  "editUrl": "https://labs.gamma.app/edit/abc123",
+  "viewUrl": "https://labs.gamma.app/view/abc123",
+  "durationMs": 42000,
+  "brandResolutionMs": 12400,
+  "brandStyleId": "ephemeral-brand-stripe"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `brandResolutionMs` | Time spent extracting brand assets and generating the style |
+| `brandStyleId` | ID of the ephemeral style (for debugging) |
+
+## Limitations
+
+- **URL must be publicly accessible** — the scraper needs to reach the
+  homepage. Sites behind auth walls will produce a fallback style.
+- **Font availability** — if the brand uses proprietary fonts not
+  available via Google Fonts, the style falls back to system fonts
+  with similar characteristics.
+- **No persistence** — the ephemeral style is not saved. To reuse the
+  same brand style across multiple decks, consider creating a proper
+  style via the dashboard.

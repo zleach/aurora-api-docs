@@ -1,0 +1,221 @@
+---
+title: Generation Pipeline
+description: How deck generation works under the hood
+---
+
+# Generation Pipeline
+
+Understanding how the generation pipeline works helps you make better
+prompts and set the right expectations for latency.
+
+## Architecture
+
+The pipeline has two phases:
+
+### 1. Planner
+
+The planner reads your prompt and produces a structured slide outline:
+- Deck title
+- Per-slide briefs (title, content direction, layout hints)
+- Style selection (when `styleId` is not specified)
+
+The planner streams its output — as soon as a slide brief is complete,
+the corresponding writer launches in parallel.
+
+### 2. Parallel writers
+
+Each slide gets its own writer that produces full HTML:
+- Receives the design guide, stylesheet, and slide brief
+- Produces a complete `<section>` with styled HTML
+- Writes are fully independent — one slow slide doesn't block others
+
+## Timing
+
+| Phase | Typical duration |
+|-------|-----------------|
+| Planner | 5-10 seconds |
+| Writers (parallel) | 15-40 seconds |
+| **Total** | **20-60 seconds** |
+
+Writer time depends on slide complexity — a data-dense slide with tables
+and metrics takes longer than a simple title slide.
+
+## Sync vs async mode
+
+### Sync mode (default)
+
+```json
+{ "waitForCompletion": true }
+```
+
+The API blocks until all slides are generated, then returns the complete deck
+in the response body. Simple to use, but the request takes 20-60 seconds.
+
+### Async mode
+
+```json
+{ "waitForCompletion": false }
+```
+
+The API returns immediately with `{ "status": "generating" }`. The generation
+continues server-side. Poll `GET /v1/decks/{id}` for progress:
+
+```bash
+# Poll until complete
+while true; do
+  STATUS=$(curl -s https://labs.gamma.app/api/v1/decks/abc123 \
+    -H "Authorization: Bearer ak_live_..." | jq -r '.generationStatus')
+  echo "Status: $STATUS"
+  if [ "$STATUS" = "complete" ] || [ "$STATUS" = "error" ]; then break; fi
+  sleep 3
+done
+```
+
+**Generation status values:**
+
+| Status | Meaning |
+|--------|---------|
+| `planning` | Planner is producing the slide outline |
+| `writing` | Writers are generating slide HTML in parallel |
+| `complete` | All slides generated, deck is ready |
+| `error` | Generation failed (check `error` field) |
+| `aborted` | Generation was cancelled |
+
+## Interactive vs static output
+
+By default, `interactive` is `false` — the entire pipeline (preflight, planner,
+and writers) produces purely static slides: no hover effects, iframes, tabs,
+animations, or clickable elements. This is the right setting for PDF, PNG, and
+PPTX exports where interactivity cannot render.
+
+Set `interactive: true` to allow writers to embed interactive elements (live
+demos, 3D visualizations, data explorations) via iframes when they strengthen
+the content. Best used when the output will be viewed in the browser editor.
+
+```json
+{
+  "prompt": "A product demo for a data analytics platform",
+  "interactive": true
+}
+```
+
+## Export formats
+
+Set `outputFormat` to get rendered export files:
+
+| Format | Response key | Description |
+|--------|-------------|-------------|
+| `null` (default) | `editUrl`, `viewUrl` | Links only (no raw slides) |
+| `"pdf"` | `pdfUrl` | Vector PDF, one slide per page |
+| `"pngs"` | `pngUrls` | Array of per-slide PNG URLs (2x retina) |
+| `"pptx"` | `pptxUrl` | PowerPoint file with slide images |
+
+Export adds 10-30 seconds to generation time (server-side rendering).
+
+```json
+{
+  "prompt": "Company overview deck",
+  "outputFormat": "pdf"
+}
+```
+
+```json
+{
+  "presentationId": "abc123",
+  "title": "Acme Corp Overview",
+  "editUrl": "https://labs.gamma.app/edit/abc123",
+  "viewUrl": "https://labs.gamma.app/view/abc123",
+  "durationMs": 45200,
+  "pdfUrl": "https://storage.googleapis.com/..."
+}
+```
+
+### Exports in async mode
+
+When you combine `outputFormat` with `waitForCompletion: false`, the create
+response returns before the export exists (it only confirms generation
+started). The export is rendered in the background once generation finishes,
+and the download URL is persisted on the deck. Retrieve it later from
+`GET /v1/decks/{id}`, which surfaces both a structured `exports` map (with
+per-format status) and a flattened top-level URL once complete:
+
+```bash
+curl https://labs.gamma.app/api/v1/decks/abc123 \
+  -H "Authorization: Bearer ak_live_..."
+```
+
+```json
+{
+  "presentationId": "abc123",
+  "generationStatus": "complete",
+  "pdfUrl": "https://storage.googleapis.com/...",
+  "exports": {
+    "pdf": {
+      "format": "pdf",
+      "status": "complete",
+      "pdfUrl": "https://storage.googleapis.com/...",
+      "requestedAt": "2026-06-02T21:30:00.000Z",
+      "completedAt": "2026-06-02T21:30:18.000Z"
+    }
+  }
+}
+```
+
+## Exporting an existing deck
+
+You can also export a deck that was already generated — without
+regenerating it — via `POST /v1/decks/{id}/export`. The deck must have
+finished generating (`generationStatus: "complete"`).
+
+```bash
+curl -X POST https://labs.gamma.app/api/v1/decks/abc123/export \
+  -H "Authorization: Bearer ak_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "format": "pdf" }'
+```
+
+```json
+{
+  "presentationId": "abc123",
+  "format": "pdf",
+  "status": "complete",
+  "pdfUrl": "https://storage.googleapis.com/..."
+}
+```
+
+Pass `"waitForCompletion": false` to render in the background instead. The
+call returns immediately with a `statusUrl` you can poll:
+
+```json
+{
+  "presentationId": "abc123",
+  "format": "pdf",
+  "status": "processing",
+  "statusUrl": "https://labs.gamma.app/api/v1/decks/abc123/export?format=pdf"
+}
+```
+
+```bash
+# Poll the export until it's ready
+curl "https://labs.gamma.app/api/v1/decks/abc123/export?format=pdf" \
+  -H "Authorization: Bearer ak_live_..."
+```
+
+```json
+{
+  "presentationId": "abc123",
+  "format": "pdf",
+  "status": "complete",
+  "pdfUrl": "https://storage.googleapis.com/...",
+  "requestedAt": "2026-06-02T21:30:00.000Z",
+  "completedAt": "2026-06-02T21:30:18.000Z"
+}
+```
+
+The export endpoint requires the `decks:read` scope.
+
+## Tab-close resilience
+
+Generation runs entirely server-side. If the client disconnects (tab close,
+network drop, timeout), generation continues to completion. The deck will be
+waiting in Firestore when you reconnect.

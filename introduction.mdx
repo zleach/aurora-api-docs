@@ -1,0 +1,51 @@
+---
+title: Introduction
+description: Generate AI-powered presentations programmatically with the Aurora API
+---
+
+# Aurora API
+
+The Aurora API lets you generate AI-powered presentations from a text prompt. Decks are generated entirely server-side — no browser required.
+
+## What you can do
+
+<CardGroup cols={2}>
+  <Card title="Generate decks" icon="wand-magic-sparkles">
+    Send a prompt, get back a fully designed presentation in seconds.
+  </Card>
+  <Card title="Choose styles" icon="palette">
+    Pick from 190+ built-in styles or let the AI choose the best match.
+  </Card>
+  <Card title="Export formats" icon="file-export">
+    Export to PDF, PNG, or PPTX with server-side rendering.
+  </Card>
+  <Card title="Async generation" icon="clock">
+    Fire-and-forget mode for batch workloads — poll for status when ready.
+  </Card>
+</CardGroup>
+
+## How it works
+
+1. **Authenticate** with an API key (`ak_live_...`)
+2. **POST** a prompt to `/v1/decks` with optional style and template
+3. **Receive** the generated deck — edit/view URLs, plus export URLs if requested
+4. **Open** the deck in the Aurora editor via the returned `editUrl`
+
+The generation pipeline uses a planner + parallel writer architecture:
+- The **planner** reads your prompt and produces a slide outline
+- **Writers** fan out in parallel, one per slide, each generating full HTML
+- All slides are persisted to Firestore and available for editing immediately
+
+Typical generation time: **20-60 seconds** for a 5-10 slide deck.
+
+## Quick example
+
+```bash
+curl -X POST https://labs.gamma.app/api/v1/decks \
+  -H "Authorization: Bearer ak_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "A 6-slide pitch deck for a solar energy startup",
+    "styleId": "editorial"
+  }'
+```

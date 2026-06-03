@@ -1,0 +1,79 @@
+---
+title: Styles
+description: Built-in design systems for deck generation
+---
+
+# Styles
+
+Aurora ships with **190+ built-in styles** — pre-designed visual systems that
+control typography, colors, layout density, and overall mood. Each style
+includes a pre-baked CSS stylesheet and a design guide that the AI writers
+use to produce on-brand HTML.
+
+## How styles work
+
+When you generate a deck, the style controls:
+- **Typography** — font families, sizes, weights, line heights
+- **Colors** — background, surface, text, and accent palette
+- **Layout** — grid systems, spacing, card shapes, density
+- **Imagery** — photographic vs illustrated, abstract vs concrete
+- **Mood** — corporate vs playful, minimal vs dense, dark vs light
+
+## Picking a style
+
+### Auto-select (recommended)
+
+Omit `styleId` and the AI picks the best match:
+
+```json
+{
+  "prompt": "A pitch deck for a fintech startup"
+}
+```
+
+The planner uses semantic search to rank styles by relevance to your prompt,
+then selects the best fit.
+
+### Explicit selection
+
+Set `styleId` to a specific style:
+
+```json
+{
+  "prompt": "History of Jazz music",
+  "styleId": "velvet"
+}
+```
+
+### Finding styles
+
+Use the search endpoint to discover styles:
+
+```bash
+curl -X POST https://labs.gamma.app/api/v1/styles/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "dark minimalist tech", "topK": 5}'
+```
+
+Or list all styles:
+
+```bash
+curl https://labs.gamma.app/api/v1/styles
+```
+
+## Style categories
+
+| Category | Examples | Mood |
+|----------|----------|------|
+| Editorial & Magazine | Editorial, Caslon Hush, Modem | Clean, typographic |
+| Brutalist & Anti-design | Brutus, Acid, Xerox | Raw, bold |
+| Retro & Vintage | Velvet, Miami, Polaroid | Nostalgic, warm |
+| Soft & Pastel | Pebble, Mochi, Linen | Gentle, calm |
+| Graph & Consulting | Pyramid, Matrix, Funnel | Data-forward |
+| Tech Product | Polaris, Tonic, Sandbox | Modern SaaS |
+| Boardroom & Capital | Pitch Dark, Mahogany, Quarterly | Professional |
+| Education & Learning | Chalk, Lab Bench, Atlas | Instructional |
+| Image-heavy & Visual | Quarry, Darkroom, Aperture | Photo-led |
+| Regional Traditions | Helvetica, Bunka, Seoul | Cultural |
+| Industry Verticals | Clinical, Pharma, Ledger | Sector-specific |
+| Art Movements | Bauhaus, Dada, Minimalism | Artistic |

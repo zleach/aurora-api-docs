@@ -1,0 +1,45 @@
+---
+title: Templates
+description: Pre-built deck structures for common use cases
+---
+
+# Templates
+
+Templates are pre-built deck structures — a defined set of slides with
+specific layouts (cover, problem, solution, demo, etc.) that the AI fills
+in with your content. Unlike styles (which control visual appearance),
+templates control **structure**.
+
+## Using a template
+
+Pass a `templateId` in your request:
+
+```json
+{
+  "prompt": "Q2 2026 investor update for Series B fintech",
+  "templateId": "investor-update"
+}
+```
+
+When a template is provided:
+- The deck is generated using the template's slide layouts
+- The template's embedded stylesheet is used (no separate style needed)
+- You can still set `styleId` to override the template's visual treatment
+
+## Templates vs styles
+
+| | Templates | Styles |
+|---|---|---|
+| Controls | Slide structure and layout | Visual design system |
+| Example | "Cover → Problem → Solution → Demo → CTA" | "Dark minimalist with Inter font" |
+| Passed via | `templateId` | `styleId` |
+| Can combine? | Yes — template structure + custom style | Yes |
+
+## Available templates
+
+Templates are stored in the Aurora template gallery. Each template includes:
+- A pre-defined slide structure
+- Embedded stylesheet
+- Optimized for a specific use case (pitch decks, reports, etc.)
+
+Browse templates in the Aurora editor or query them via the API.

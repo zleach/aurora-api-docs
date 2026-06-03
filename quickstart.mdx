@@ -1,0 +1,101 @@
+---
+title: Quickstart
+description: Generate your first deck in under a minute
+---
+
+# Quickstart
+
+## 1. Get an API key
+
+API keys are created by an admin via the Admin Settings panel in the
+Aurora UI (profile menu → Settings → API Keys tab), or via the API:
+
+```bash
+curl -X POST https://labs.gamma.app/api/v1/keys \
+  -H "Authorization: Bearer ADMIN_FIREBASE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My first key"}'
+```
+
+Save the `key` from the response — it won't be shown again.
+
+## 2. Generate a deck
+
+```bash
+curl -X POST https://labs.gamma.app/api/v1/decks \
+  -H "Authorization: Bearer ak_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "A 5-slide overview of renewable energy trends in 2026"
+  }'
+```
+
+The response includes the generated deck:
+
+```json
+{
+  "presentationId": "abc123",
+  "title": "Renewable Energy Trends 2026",
+  "editUrl": "https://labs.gamma.app/edit/abc123",
+  "viewUrl": "https://labs.gamma.app/view/abc123",
+  "durationMs": 31200,
+  "styleId": "editorial"
+}
+```
+
+The preflight agent automatically enriches your prompt — it detects brands,
+picks the best style, and expands your prompt with detail. To generate
+a branded deck, just mention the company:
+
+```bash
+curl -X POST https://labs.gamma.app/api/v1/decks \
+  -H "Authorization: Bearer ak_live_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "pitch deck for Stripe's payment infrastructure"
+  }'
+```
+
+The response includes preflight metadata showing how your prompt was enriched:
+
+```json
+{
+  "presentationId": "def456",
+  "title": "Stripe — The Payment Infrastructure Platform",
+  "editUrl": "https://labs.gamma.app/edit/def456",
+  "viewUrl": "https://labs.gamma.app/view/def456",
+  "durationMs": 45800,
+  "preflightMs": 12400,
+  "enrichedPrompt": "A 6-slide investor pitch for Stripe...",
+  "brandResolutionMs": 10200,
+  "brandStyleId": "ephemeral-brand-stripe"
+}
+```
+
+## 3. Open in the editor
+
+Click the `editUrl` to open your deck in the Aurora editor, where you can:
+- Edit slides visually
+- Chat with the AI to refine content
+- Change the style
+- Export to PDF/PPTX
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Choose a style" icon="palette" href="/concepts/styles">
+    Browse 190+ built-in styles
+  </Card>
+  <Card title="Export formats" icon="file-export" href="/concepts/generation#export-formats">
+    PDF, PNG, and PPTX export
+  </Card>
+  <Card title="Async mode" icon="clock" href="/concepts/generation#async-mode">
+    Fire-and-forget for batch generation
+  </Card>
+  <Card title="Brand extraction" icon="building" href="/concepts/branding">
+    Auto-detect and apply brand identity
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Full endpoint documentation
+  </Card>
+</CardGroup>

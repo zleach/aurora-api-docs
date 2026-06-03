@@ -1,0 +1,78 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Aurora API",
+  "theme": "maple",
+  "colors": {
+    "primary": "#2c88f7",
+    "light": "#63acf7",
+    "dark": "#0540ad"
+  },
+  "favicon": "/images/favicon.svg",
+  "appearance": {
+    "default": "dark"
+  },
+  "openapi": ["openapi.yaml"],
+  "api": {
+    "playground": {
+      "display": "interactive"
+    },
+    "examples": {
+      "languages": ["curl", "python", "javascript"],
+      "defaults": "required",
+      "prefill": true
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": ["introduction", "quickstart", "authentication"]
+          },
+          {
+            "group": "Concepts",
+            "pages": ["concepts/styles", "concepts/templates", "concepts/generation", "concepts/branding", "concepts/preflight"]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "/openapi.yaml",
+        "menu": [
+          {
+            "item": "Decks",
+            "pages": [
+              "POST /v1/decks",
+              "GET /v1/decks/{id}",
+              "POST /v1/decks/{id}/export",
+              "GET /v1/decks/{id}/export"
+            ]
+          },
+          {
+            "item": "Styles",
+            "pages": ["GET /v1/styles", "POST /v1/styles/search"]
+          },
+          {
+            "item": "API Keys",
+            "pages": [
+              "POST /v1/keys",
+              "GET /v1/keys",
+              "DELETE /v1/keys/{id}"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "icon": "github",
+          "href": "https://github.com/zleach/aurora-api-docs"
+        }
+      ]
+    }
+  }
+}

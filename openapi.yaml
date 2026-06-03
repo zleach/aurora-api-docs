@@ -1,0 +1,876 @@
+openapi: 3.1.0
+info:
+  title: Aurora API
+  version: "1.0"
+  description: |
+    Programmatic deck generation powered by the Aurora server-side Turbo pipeline.
+
+    Generate AI-powered presentations from a text prompt, with optional style and
+    template selection. Decks are generated server-side — no browser required.
+  contact:
+    name: Gamma Labs
+    url: https://gamma.app
+
+servers:
+  - url: https://labs.gamma.app/api
+    description: Production
+  - url: http://localhost:3000/api
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+paths:
+  /v1/decks:
+    post:
+      operationId: createDeck
+      summary: Generate a deck
+      description: |
+        Creates a new presentation and runs the full AI generation pipeline.
+        In sync mode (default), blocks until generation completes (~20-60s).
+        In async mode, returns immediately — poll `GET /v1/decks/{id}` for status.
+      tags:
+        - Decks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeckRequest"
+            examples:
+              simple:
+                summary: Minimal prompt
+                value:
+                  prompt: "A 6-slide pitch deck for a solar energy startup"
+              with-style:
+                summary: With a specific style
+                value:
+                  prompt: "History of Jazz music"
+                  styleId: "velvet"
+              with-template:
+                summary: From a template
+                value:
+                  prompt: "Q2 2026 investor update for a fintech company"
+                  templateId: "investor-update"
+              with-brand:
+                summary: Branded deck (explicit brand)
+                value:
+                  prompt: "A 5-slide company overview for our investors"
+                  brand:
+                    name: "Stripe"
+                    url: "https://stripe.com"
+                  enrich: false
+              with-interactive:
+                summary: With interactive elements enabled
+                value:
+                  prompt: "A 5-slide product demo for a data analytics platform"
+                  interactive: true
+              auto-enriched:
+                summary: Auto-enriched (preflight agent)
+                value:
+                  prompt: "pitch deck for Stripe's payment infrastructure"
+              async-pdf:
+                summary: Async with PDF output
+                value:
+                  prompt: "5-slide product roadmap"
+                  waitForCompletion: false
+                  outputFormat: "pdf"
+      responses:
+        "200":
+          description: Deck generated (sync mode)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDeckResponse"
+        "202":
+          description: Generation started (async mode)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncDeckResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: Brand resolution failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationError"
+
+  /v1/decks/{id}:
+    get:
+      operationId: getDeck
+      summary: Get deck status and content
+      description: |
+        Retrieve a deck by ID. Use this to poll for async generation progress
+        or to fetch a completed deck's content.
+      tags:
+        - Decks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Presentation ID returned by `POST /v1/decks`
+      responses:
+        "200":
+          description: Deck found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeckStatus"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Deck not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/decks/{id}/export:
+    post:
+      operationId: exportDeck
+      summary: Export a deck to PDF, PNGs, or PPTX
+      description: |
+        Render an already-generated deck into a downloadable artifact. The
+        deck must have finished generating (`generationStatus: "complete"`).
+
+        In sync mode (default), blocks until the render finishes and returns
+        the download URL(s). In async mode (`waitForCompletion: false`),
+        returns immediately with `status: "processing"` — poll
+        `GET /v1/decks/{id}/export?format={format}` (or `GET /v1/decks/{id}`)
+        for the URL once `status` becomes `"complete"`.
+
+        Download URLs are persisted on the deck, so they remain retrievable
+        afterwards via `GET /v1/decks/{id}`.
+      tags:
+        - Decks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Presentation ID returned by `POST /v1/decks`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportDeckRequest"
+            examples:
+              pdf:
+                summary: Export to PDF (sync)
+                value:
+                  format: "pdf"
+              async-pptx:
+                summary: Export to PPTX (async)
+                value:
+                  format: "pptx"
+                  waitForCompletion: false
+      responses:
+        "200":
+          description: Export complete (sync mode)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResult"
+        "202":
+          description: Export started (async mode)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportAccepted"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Deck not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Deck not ready (generation incomplete or no slides)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Export failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationError"
+    get:
+      operationId: getDeckExports
+      summary: Get export status and download URLs
+      description: |
+        Retrieve the status and download URL(s) of exports requested for a
+        deck. Without a `format` query param, returns a map of every export
+        that has been requested. With `?format={format}`, returns just that
+        format's entry (404 if it has never been requested).
+      tags:
+        - Decks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Presentation ID returned by `POST /v1/decks`
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["pdf", "pngs", "pptx"]
+          description: Return only this format's export entry
+      responses:
+        "200":
+          description: Export status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeckExports"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Deck or export not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /v1/styles:
+    get:
+      operationId: listStyles
+      summary: List available styles
+      description: Returns all built-in styles available for deck generation.
+      tags:
+        - Styles
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter by category slug
+      responses:
+        "200":
+          description: Style list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StyleList"
+
+  /v1/styles/search:
+    post:
+      operationId: searchStyles
+      summary: Search styles
+      description: |
+        Semantic search over built-in styles using TF-IDF cosine similarity.
+        Returns styles ranked by relevance to the query.
+      tags:
+        - Styles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  description: Natural language query
+                  example: "dark minimalist tech startup"
+                topK:
+                  type: integer
+                  default: 15
+                  maximum: 50
+                  description: Max results to return
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StyleSearchResults"
+
+  /v1/keys:
+    post:
+      operationId: createApiKey
+      summary: Create an API key
+      description: |
+        Create a new API key. The raw key is returned **once** in the response
+        — store it securely, it cannot be retrieved again.
+
+        Requires the current session for an admin or a user with API access.
+      tags:
+        - API Keys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Human-readable label for the key
+                  example: "Production integration"
+      responses:
+        "200":
+          description: Key created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    get:
+      operationId: listApiKeys
+      summary: List API keys
+      description: |
+        List API keys. Admins see keys across all users; non-admin users with
+        API access see only their own keys.
+      tags:
+        - API Keys
+      responses:
+        "200":
+          description: Key list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /v1/keys/{id}:
+    delete:
+      operationId: revokeApiKey
+      summary: Revoke an API key
+      description: |
+        Permanently revoke an API key. This action cannot be undone.
+        Requires the current session for an admin or a user with API access.
+      tags:
+        - API Keys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Key ID to revoke
+      responses:
+        "200":
+          description: Key revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  revoked:
+                    type: boolean
+                    example: true
+        "404":
+          description: Key not found
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Pass either a current-session bearer token or an API key (`ak_live_...`).
+
+        ```
+        Authorization: Bearer ak_live_xxxxxxxxxxxx_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+        ```
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Insufficient permissions or scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    CreateDeckRequest:
+      type: object
+      required:
+        - prompt
+      properties:
+        prompt:
+          type: string
+          description: |
+            Natural language description of the deck to generate.
+            Be specific — include topic, audience, slide count, and tone.
+          example: "A 6-slide pitch deck for a solar energy startup targeting VCs"
+        styleId:
+          type: string
+          nullable: true
+          description: |
+            ID of a built-in style (e.g. `"editorial"`, `"velvet"`, `"bauhaus-poster"`).
+            When null, the AI picks the best-matching style from the catalog.
+          example: "editorial"
+        templateId:
+          type: string
+          nullable: true
+          description: |
+            ID of a built-in template from the template gallery.
+            When provided, the deck is generated using the template's layout.
+          example: null
+        waitForCompletion:
+          type: boolean
+          default: true
+          description: |
+            - `true` (default): Block until generation completes (~20-60s)
+            - `false`: Return immediately, poll `GET /v1/decks/{id}` for status
+        brand:
+          type: object
+          nullable: true
+          description: |
+            On-the-fly brand extraction. When provided, Aurora scrapes the brand's
+            website, extracts colors/fonts/logos, and generates an ephemeral Style
+            for the deck. Mutually exclusive with `styleId`.
+          properties:
+            name:
+              type: string
+              description: Company or brand name
+              example: "Stripe"
+            url:
+              type: string
+              format: uri
+              nullable: true
+              description: |
+                Website URL. If omitted, derived from the brand name
+                (e.g. "Stripe" → `https://stripe.com`).
+              example: "https://stripe.com"
+          required:
+            - name
+        enrich:
+          type: boolean
+          default: true
+          description: |
+            When `true` (default), a preflight agent enriches the request before
+            generation: it parses the prompt for brand/company mentions, searches
+            for the best-matching style, runs web research for factual grounding,
+            and expands the prompt with audience/tone/structure detail.
+
+            Skipped when `styleId`, `brand`, or `templateId` is explicitly provided.
+            Set to `false` to bypass enrichment and generate from the raw prompt.
+        interactive:
+          type: boolean
+          default: false
+          description: |
+            When `true`, slide writers may embed interactive elements (iframes,
+            demos, simulations) where they strengthen the content. When `false`
+            (default), the entire pipeline — preflight agent, planner, and
+            writers — is instructed to produce purely static slides with no
+            interactive affordances (no hover, no click, no iframes). Use
+            `false` for PDF/PNG/PPTX output where interactivity cannot render.
+        outputFormat:
+          type: string
+          nullable: true
+          enum: [null, "pdf", "pngs", "pptx"]
+          description: |
+            Export format. When null (default), returns `editUrl` and `viewUrl`
+            only (no raw slides). When set, renders slides server-side and
+            returns download URLs.
+
+    CreateDeckResponse:
+      type: object
+      properties:
+        presentationId:
+          type: string
+          description: Unique deck ID
+        title:
+          type: string
+          description: AI-generated title
+        editUrl:
+          type: string
+          format: uri
+          description: URL to open the deck in the Aurora editor
+        viewUrl:
+          type: string
+          format: uri
+          description: Public read-only view URL
+        durationMs:
+          type: integer
+          description: Generation time in milliseconds
+        styleId:
+          type: string
+          description: ID of the style used for generation
+        pdfUrl:
+          type: string
+          format: uri
+          description: Download URL (when outputFormat is "pdf")
+        pngUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Per-slide PNG URLs (when outputFormat is "pngs")
+        pptxUrl:
+          type: string
+          format: uri
+          description: Download URL (when outputFormat is "pptx")
+        brandResolutionMs:
+          type: integer
+          description: Time spent extracting brand assets (when `brand` was provided)
+        brandStyleId:
+          type: string
+          description: ID of the ephemeral brand-derived style (when `brand` was provided)
+        preflightMs:
+          type: integer
+          description: Time spent in preflight enrichment (when enrichment ran)
+        enrichedPrompt:
+          type: string
+          description: The enriched prompt used for generation (when enrichment ran)
+        preflightResearch:
+          type: string
+          description: Summary of facts gathered by the preflight agent (when research was done)
+
+    AsyncDeckResponse:
+      type: object
+      properties:
+        presentationId:
+          type: string
+        editUrl:
+          type: string
+          format: uri
+        viewUrl:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: ["generating"]
+
+    DeckStatus:
+      type: object
+      properties:
+        presentationId:
+          type: string
+        title:
+          type: string
+          nullable: true
+        editUrl:
+          type: string
+          format: uri
+        viewUrl:
+          type: string
+          format: uri
+        generationStatus:
+          type: string
+          enum: ["planning", "writing", "complete", "error", "aborted"]
+          description: Current state of the generation pipeline
+        styleId:
+          type: string
+          nullable: true
+        durationMs:
+          type: integer
+          description: Present when generation is complete
+        error:
+          type: string
+          description: Present when generationStatus is "error"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        exports:
+          $ref: "#/components/schemas/ExportMap"
+          description: |
+            Present when one or more exports have been requested for this deck
+            (via `outputFormat` on create, or `POST /v1/decks/{id}/export`).
+        pdfUrl:
+          type: string
+          format: uri
+          description: Convenience top-level field when a PDF export is complete
+        pngUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Convenience top-level field when a PNG export is complete
+        pptxUrl:
+          type: string
+          format: uri
+          description: Convenience top-level field when a PPTX export is complete
+
+    ExportDeckRequest:
+      type: object
+      required:
+        - format
+      properties:
+        format:
+          type: string
+          enum: ["pdf", "pngs", "pptx"]
+          description: The artifact format to render.
+        waitForCompletion:
+          type: boolean
+          default: true
+          description: |
+            When true (default), blocks until the render finishes and returns
+            the download URL(s). When false, returns immediately with
+            `status: "processing"` for polling.
+
+    ExportResult:
+      type: object
+      properties:
+        presentationId:
+          type: string
+        format:
+          type: string
+          enum: ["pdf", "pngs", "pptx"]
+        status:
+          type: string
+          enum: ["complete"]
+        pdfUrl:
+          type: string
+          format: uri
+          description: Download URL (when format is "pdf")
+        pngUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Per-slide PNG URLs (when format is "pngs")
+        pptxUrl:
+          type: string
+          format: uri
+          description: Download URL (when format is "pptx")
+
+    ExportAccepted:
+      type: object
+      properties:
+        presentationId:
+          type: string
+        format:
+          type: string
+          enum: ["pdf", "pngs", "pptx"]
+        status:
+          type: string
+          enum: ["processing"]
+        statusUrl:
+          type: string
+          format: uri
+          description: Poll this URL until status becomes "complete"
+
+    ExportEntry:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: ["pdf", "pngs", "pptx"]
+        status:
+          type: string
+          enum: ["processing", "complete", "error"]
+        pdfUrl:
+          type: string
+          format: uri
+        pngUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+        pptxUrl:
+          type: string
+          format: uri
+        error:
+          type: string
+          description: Present when status is "error"
+        requestedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ExportMap:
+      type: object
+      description: Map of export entries keyed by format.
+      properties:
+        pdf:
+          $ref: "#/components/schemas/ExportEntry"
+        pngs:
+          $ref: "#/components/schemas/ExportEntry"
+        pptx:
+          $ref: "#/components/schemas/ExportEntry"
+
+    DeckExports:
+      type: object
+      description: |
+        Returned by `GET /v1/decks/{id}/export`. Without a `format` filter the
+        `exports` map is returned; with `?format=` the single entry's fields
+        are returned inline alongside `presentationId`.
+      properties:
+        presentationId:
+          type: string
+        exports:
+          $ref: "#/components/schemas/ExportMap"
+
+    GenerationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Generation failed"
+        message:
+          type: string
+        presentationId:
+          type: string
+
+    StyleSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "editorial"
+        name:
+          type: string
+          example: "Editorial"
+        vibe:
+          type: string
+          example: "Clean magazine-inspired layouts with strong typography"
+        category:
+          type: string
+          nullable: true
+        isDark:
+          type: boolean
+        palette:
+          type: object
+          properties:
+            bg:
+              type: string
+            surface:
+              type: string
+            text:
+              type: string
+            accent:
+              type: string
+        lookbookUrl:
+          type: string
+          format: uri
+
+    StyleList:
+      type: object
+      properties:
+        styles:
+          type: array
+          items:
+            $ref: "#/components/schemas/StyleSummary"
+        total:
+          type: integer
+          description: Number of styles returned after filtering
+
+    StyleSearchResults:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/StyleSummary"
+              - type: object
+                properties:
+                  score:
+                    type: number
+                    description: Relevance score (0-1)
+
+    ApiKeyCreated:
+      type: object
+      properties:
+        key:
+          type: string
+          description: |
+            The raw API key. **Store this securely — it cannot be retrieved again.**
+          example: "ak_live_a1b2c3d4e5f6_AbCdEfGhIjKlMnOpQrStUvWxYz012345"
+        id:
+          type: string
+          description: Key ID (for management operations)
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ApiKeyList:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              uid:
+                type: string
+                description: Owner user ID
+              name:
+                type: string
+              scopes:
+                type: array
+                items:
+                  type: string
+              createdAt:
+                type: string
+                format: date-time
+                nullable: true
+              lastUsedAt:
+                type: string
+                format: date-time
+                nullable: true
+              revoked:
+                type: boolean
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
