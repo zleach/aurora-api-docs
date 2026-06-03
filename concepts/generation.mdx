@@ -213,9 +213,3 @@ curl "https://labs.gamma.app/api/v1/decks/abc123/export?format=pdf" \
 ```
 
 The export endpoint requires the `decks:read` scope.
-
-## Tab-close resilience
-
-Generation runs entirely server-side. If the client disconnects (tab close,
-network drop, timeout), generation continues to completion. The deck will be
-waiting in Firestore when you reconnect.
