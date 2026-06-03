@@ -1,6 +1,6 @@
 ---
 title: Authentication
-description: API key and Firebase token authentication
+description: Authenticating requests with an API key
 ---
 
 # Authentication
@@ -11,9 +11,7 @@ All API requests require a `Bearer` token in the `Authorization` header.
 Authorization: Bearer <token>
 ```
 
-The API accepts two types of tokens:
-
-## API Keys (recommended for integrations)
+## API Keys
 
 API keys are long-lived tokens scoped to a specific user. Use these for
 server-to-server integrations, scripts, and automation.
@@ -26,29 +24,18 @@ Authorization: Bearer ak_live_a1b2c3d4e5f6_AbCdEfGhIjKlMnOpQrStUvWxYz012345
 
 Keys follow the pattern `ak_live_<keyId>_<secret>`:
 - `ak_live_` — prefix identifying the token as an API key
-- `<keyId>` — 12-character identifier (used for management operations)
+- `<keyId>` — 12-character identifier
 - `<secret>` — 32-character secret (hashed before storage, never stored in plain text)
 
-### Creating a key
+### Getting a key
 
-<Note>
-  API key management is admin-only. Create keys via the Admin Settings
-  panel (profile menu → Settings → API Keys tab) or via the API with an
-  admin Firebase ID token.
-</Note>
-
-```bash
-curl -X POST https://labs.gamma.app/api/v1/keys \
-  -H "Authorization: Bearer ADMIN_FIREBASE_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Production integration"}'
-```
-
-The raw key is returned **once** — store it securely.
+Generate and manage API keys from the Aurora dashboard — open the profile
+menu and go to **Settings → API Keys**. The raw key is shown **once** when
+it's created, so copy it immediately and store it securely.
 
 ### Scopes
 
-API keys are created with these scopes:
+API keys are issued with these scopes:
 
 | Scope | Grants |
 |-------|--------|
@@ -57,30 +44,14 @@ API keys are created with these scopes:
 
 ### Revoking a key
 
-```bash
-curl -X DELETE https://labs.gamma.app/api/v1/keys/KEY_ID \
-  -H "Authorization: Bearer ADMIN_FIREBASE_TOKEN"
-```
-
-Revocation is permanent and immediate. Any in-flight requests using the key will fail.
-
-## Firebase ID Tokens
-
-Firebase ID tokens are short-lived (1 hour) tokens issued by Firebase Auth.
-They implicitly have all scopes and are primarily used by the Aurora web app.
-
-```
-Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
-```
-
-For programmatic use, API keys are preferred — Firebase tokens require a
-client SDK to mint and expire frequently.
+Revoke a key any time from **Settings → API Keys** in the dashboard.
+Revocation is permanent and immediate — any requests using the key will
+fail right away.
 
 ## Error responses
 
 | Status | Body | Cause |
 |--------|------|-------|
 | `401` | `{"error": "Unauthorized"}` | No `Authorization` header |
-| `401` | `{"error": "Invalid token"}` | Expired/malformed Firebase token |
 | `401` | `{"error": "Invalid or revoked API key"}` | Bad or revoked API key |
 | `403` | `{"error": "Forbidden", "message": "..."}` | Valid key but missing required scope |

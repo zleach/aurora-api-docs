@@ -53,14 +53,6 @@
           {
             "item": "Styles",
             "pages": ["GET /v1/styles", "POST /v1/styles/search"]
-          },
-          {
-            "item": "API Keys",
-            "pages": [
-              "POST /v1/keys",
-              "GET /v1/keys",
-              "DELETE /v1/keys/{id}"
-            ]
           }
         ]
       }

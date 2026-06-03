@@ -319,97 +319,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/StyleSearchResults"
 
-  /v1/keys:
-    post:
-      operationId: createApiKey
-      summary: Create an API key
-      description: |
-        Create a new API key. The raw key is returned **once** in the response
-        — store it securely, it cannot be retrieved again.
-
-        Requires the current session for an admin or a user with API access.
-      tags:
-        - API Keys
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - name
-              properties:
-                name:
-                  type: string
-                  description: Human-readable label for the key
-                  example: "Production integration"
-      responses:
-        "200":
-          description: Key created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiKeyCreated"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-    get:
-      operationId: listApiKeys
-      summary: List API keys
-      description: |
-        List API keys. Admins see keys across all users; non-admin users with
-        API access see only their own keys.
-      tags:
-        - API Keys
-      responses:
-        "200":
-          description: Key list
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ApiKeyList"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /v1/keys/{id}:
-    delete:
-      operationId: revokeApiKey
-      summary: Revoke an API key
-      description: |
-        Permanently revoke an API key. This action cannot be undone.
-        Requires the current session for an admin or a user with API access.
-      tags:
-        - API Keys
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Key ID to revoke
-      responses:
-        "200":
-          description: Key revoked
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  revoked:
-                    type: boolean
-                    example: true
-        "404":
-          description: Key not found
-
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       description: |
-        Pass either a current-session bearer token or an API key (`ak_live_...`).
+        Authenticate with an API key (`ak_live_...`).
 
         ```
         Authorization: Bearer ak_live_xxxxxxxxxxxx_yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
@@ -815,57 +731,6 @@ components:
                   score:
                     type: number
                     description: Relevance score (0-1)
-
-    ApiKeyCreated:
-      type: object
-      properties:
-        key:
-          type: string
-          description: |
-            The raw API key. **Store this securely — it cannot be retrieved again.**
-          example: "ak_live_a1b2c3d4e5f6_AbCdEfGhIjKlMnOpQrStUvWxYz012345"
-        id:
-          type: string
-          description: Key ID (for management operations)
-        name:
-          type: string
-        scopes:
-          type: array
-          items:
-            type: string
-        createdAt:
-          type: string
-          format: date-time
-
-    ApiKeyList:
-      type: object
-      properties:
-        keys:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              uid:
-                type: string
-                description: Owner user ID
-              name:
-                type: string
-              scopes:
-                type: array
-                items:
-                  type: string
-              createdAt:
-                type: string
-                format: date-time
-                nullable: true
-              lastUsedAt:
-                type: string
-                format: date-time
-                nullable: true
-              revoked:
-                type: boolean
 
     Error:
       type: object
