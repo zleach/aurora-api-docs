@@ -33,15 +33,6 @@ Generate and manage API keys from the Aurora dashboard — open the profile
 menu and go to **Settings → API Keys**. The raw key is shown **once** when
 it's created, so copy it immediately and store it securely.
 
-### Scopes
-
-API keys are issued with these scopes:
-
-| Scope | Grants |
-|-------|--------|
-| `decks:create` | Generate new decks |
-| `decks:read` | Read deck status and content |
-
 ### Revoking a key
 
 Revoke a key any time from **Settings → API Keys** in the dashboard.
@@ -54,4 +45,3 @@ fail right away.
 |--------|------|-------|
 | `401` | `{"error": "Unauthorized"}` | No `Authorization` header |
 | `401` | `{"error": "Invalid or revoked API key"}` | Bad or revoked API key |
-| `403` | `{"error": "Forbidden", "message": "..."}` | Valid key but missing required scope |
